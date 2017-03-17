@@ -5123,6 +5123,9 @@ def makedirs_perms(name,
                 raise
         if tail == os.curdir:  # xxx/newdir/. exists if xxx/newdir exists
             return
+    if not os.path.exists(os.readlink(name)):
+        log.debug('path %s is a broken symlink. Deleting this symlink' % name)
+        os.unlink(name)
     os.mkdir(name)
     check_perms(name,
                 None,
