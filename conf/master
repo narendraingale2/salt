@@ -133,6 +133,14 @@
 
 # Cache subsystem module to use for minion data cache.
 #cache: localfs
+# Enables a fast in-memory cache booster and sets the expiration time.
+#memcache_expire_seconds: 0
+# Set a memcache limit in items (bank + key) per cache storage (driver + driver_opts).
+#memcache_max_items: 1024
+# Each time a cache storage got full cleanup all the expired items not just the oldest one.
+#memcache_full_cleanup: False
+# Enable collecting the memcache stats and log it on `debug` log level.
+#memcache_debug: False
 
 # Store all returns in the given returner.
 # Setting this option requires that any returner-specific configuration also
@@ -185,6 +193,9 @@
 # WARNING: This may have security implications if compromised minions auth with
 # a previous deleted minion ID.
 #preserve_minion_cache: False
+
+# Allow or deny minions from requesting their own key revocation
+#allow_minion_key_revoke: True
 
 # If max_minions is used in large installations, the master might experience
 # high-load situations because of having to check the number of connected
@@ -270,6 +281,15 @@
 # Value: In bytes. Set to 'dynamic' to have Salt select
 # a value for you. Default is disabled.
 # ipc_write_buffer: 'dynamic'
+
+# These two batch settings, batch_safe_limit and batch_safe_size, are used to
+# automatically switch to a batch mode execution. If a command would have been
+# sent to more than <batch_safe_limit> minions, then run the command in
+# batches of <batch_safe_size>. If no batch_safe_size is specified, a default
+# of 8 will be used. If no batch_safe_limit is specified, then no automatic
+# batching will occur.
+#batch_safe_limit: 100
+#batch_safe_size: 8
 
 
 #####        Security settings       #####
@@ -361,6 +381,15 @@
 #     - gary
 #
 #token_expire_user_override: False
+
+# Set to True to enable keeping the calculated user's auth list in the token
+# file. This is disabled by default and the auth list is calculated or requested
+# from the eauth driver each time.
+#keep_acl_in_token: False
+
+# Auth subsystem module to use to get authorized access list for a user. By default it's
+# the same module used for external authentication.
+#eauth_acl_module: django
 
 # Allow minions to push files to the master. This is disabled by default, for
 # security purposes.
@@ -857,7 +886,7 @@
 #pillar_cache_ttl: 3600
 
 # If and only if a master has set `pillar_cache: True`, one of several storage providers
-# can be utililzed.
+# can be utilized.
 #
 # `disk`: The default storage backend. This caches rendered pillars to the master cache.
 #         Rendered pillars are serialized and deserialized as msgpack structures for speed.

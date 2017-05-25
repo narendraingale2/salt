@@ -8,6 +8,7 @@ from __future__ import absolute_import
 import os
 
 # Import Salt Testing Libs
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import TestCase, skipIf
 from tests.support.mock import (
     MagicMock,
@@ -18,20 +19,21 @@ from tests.support.mock import (
 )
 
 # Import Salt Libs
-import salt.ext.six as six
 import salt.utils
-from salt.grains import core
+import salt.grains.core as core
 
-# Globals
-core.__salt__ = {}
-core.__opts__ = {}
+# Import 3rd-party libs
+import salt.ext.six as six
 
 
 @skipIf(NO_MOCK, NO_MOCK_REASON)
-class CoreGrainsTestCase(TestCase):
+class CoreGrainsTestCase(TestCase, LoaderModuleMockMixin):
     '''
     Test cases for core grains
     '''
+    def setup_loader_modules(self):
+        return {core: {}}
+
     @skipIf(not salt.utils.is_linux(), 'System is not Linux')
     def test_gnu_slash_linux_in_os_name(self):
         '''
@@ -183,11 +185,12 @@ class CoreGrainsTestCase(TestCase):
                                 )
                                 with patch.object(core, 'linux_distribution', distro_mock):
                                     with patch.object(core, '_linux_gpu_data', empty_mock):
-                                        with patch.object(core, '_linux_cpudata', empty_mock):
-                                            with patch.object(core, '_virtual', empty_mock):
-                                                # Mock the osarch
-                                                with patch.dict(core.__salt__, {'cmd.run': osarch_mock}):
-                                                    os_grains = core.os_data()
+                                        with patch.object(core, '_hw_data', empty_mock):
+                                            with patch.object(core, '_linux_cpudata', empty_mock):
+                                                with patch.object(core, '_virtual', empty_mock):
+                                                    # Mock the osarch
+                                                    with patch.dict(core.__salt__, {'cmd.run': osarch_mock}):
+                                                        os_grains = core.os_data()
 
         self.assertEqual(os_grains.get('os_family'), 'Suse')
         self.assertEqual(os_grains.get('os'), 'SUSE')
@@ -260,7 +263,7 @@ PATCHLEVEL = 3
             'osfullname': "SLES",
             'osrelease': '11.3',
             'osrelease_info': [11, 3],
-            'osmajorrelease': '11',
+            'osmajorrelease': 11,
             'files': ["/etc/SuSE-release"],
         }
         self._run_suse_os_grains_tests(_os_release_map)
@@ -284,7 +287,7 @@ PATCHLEVEL = 3
             'osfullname': "SLES",
             'osrelease': '11.4',
             'osrelease_info': [11, 4],
-            'osmajorrelease': '11',
+            'osmajorrelease': 11,
             'files': ["/etc/os-release"],
         }
         self._run_suse_os_grains_tests(_os_release_map)
@@ -308,7 +311,7 @@ PATCHLEVEL = 3
             'osfullname': "SLES",
             'osrelease': '12',
             'osrelease_info': [12],
-            'osmajorrelease': '12',
+            'osmajorrelease': 12,
             'files': ["/etc/os-release"],
         }
         self._run_suse_os_grains_tests(_os_release_map)
@@ -332,7 +335,7 @@ PATCHLEVEL = 3
             'osfullname': "SLES",
             'osrelease': '12.1',
             'osrelease_info': [12, 1],
-            'osmajorrelease': '12',
+            'osmajorrelease': 12,
             'files': ["/etc/os-release"],
         }
         self._run_suse_os_grains_tests(_os_release_map)
@@ -356,7 +359,7 @@ PATCHLEVEL = 3
             'osfullname': "Leap",
             'osrelease': '42.1',
             'osrelease_info': [42, 1],
-            'osmajorrelease': '42',
+            'osmajorrelease': 42,
             'files': ["/etc/os-release"],
         }
         self._run_suse_os_grains_tests(_os_release_map)
@@ -380,7 +383,7 @@ PATCHLEVEL = 3
             'osfullname': "Tumbleweed",
             'osrelease': '20160504',
             'osrelease_info': [20160504],
-            'osmajorrelease': '20160504',
+            'osmajorrelease': 20160504,
             'files': ["/etc/os-release"],
         }
         self._run_suse_os_grains_tests(_os_release_map)
@@ -402,7 +405,7 @@ PATCHLEVEL = 3
             'osfullname': 'Ubuntu',
             'osrelease': '16.04',
             'osrelease_info': [16, 4],
-            'osmajorrelease': '16',
+            'osmajorrelease': 16,
             'osfinger': 'Ubuntu-16.04',
         }
         self._run_ubuntu_os_grains_tests(_os_release_map)

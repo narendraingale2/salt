@@ -19,6 +19,7 @@ execution modules
     :template: autosummary.rst.tmpl
 
     acme
+    aix_group
     aliases
     alternatives
     apache
@@ -36,9 +37,9 @@ execution modules
     bcache
     beacons
     bigip
-    blockdev
     bluez
     boto3_elasticache
+    boto3_route53
     boto_apigateway
     boto_asg
     boto_cfn
@@ -53,6 +54,7 @@ execution modules
     boto_elasticache
     boto_elasticsearch_domain
     boto_elb
+    boto_elbv2
     boto_iam
     boto_iot
     boto_kinesis
@@ -109,7 +111,7 @@ execution modules
     dnsmasq
     dnsutil
     dockercompose
-    docker
+    dockermod
     dpkg
     drac
     dracr
@@ -194,6 +196,10 @@ execution modules
     layman
     ldap3
     ldapmod
+    libcloud_compute
+    libcloud_dns
+    libcloud_loadbalancer
+    libcloud_storage
     linux_acl
     linux_ip
     linux_lvm
@@ -239,6 +245,7 @@ execution modules
     moosefs
     mount
     mssql
+    msteams
     munin
     mysql
     nacl
@@ -258,6 +265,7 @@ execution modules
     napalm_route
     napalm_snmp
     napalm_users
+    napalm_yang_mod
     netaddress
     netbsd_sysctl
     netbsdservice
@@ -267,6 +275,7 @@ execution modules
     nfs3
     nftables
     nginx
+    nilrt_ip
     nix
     nova
     npm
@@ -277,6 +286,7 @@ execution modules
     openbsdpkg
     openbsdrcctl
     openbsdservice
+    openscap
     openstack_config
     openstack_mng
     openvswitch
@@ -413,6 +423,7 @@ execution modules
     useradd
     uwsgi
     varnish
+    vault
     vbox_guest
     vboxmanage
     victorops

@@ -7,11 +7,12 @@
 from __future__ import absolute_import
 
 # Import Salt Testing libs
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import skipIf, TestCase
 from tests.support.mock import MagicMock, patch
 
 # Import Salt libs
-from salt.modules import disk
+import salt.modules.disk as disk
 import salt.utils
 
 STUB_DISK_USAGE = {
@@ -47,54 +48,55 @@ STUB_DISK_PERCENT = {
 
 STUB_DISK_BLKID = {'/dev/sda': {'TYPE': 'ext4', 'UUID': None}}
 
-disk.__grains__ = {}
 
-disk.__salt__ = {}  # {'cmd.run': salt.modules.cmdmod._run_quiet}
-
-
-class DiskTestCase(TestCase):
+class DiskTestCase(TestCase, LoaderModuleMockMixin):
     '''
     TestCase for salt.modules.disk module
     '''
+    def setup_loader_modules(self):
+        return {disk: {}}
 
-    @patch('salt.modules.disk.usage', MagicMock(return_value=STUB_DISK_USAGE))
     def test_usage_dict(self):
-        with patch.dict(disk.__grains__, {'kernel': 'Linux'}):
+        with patch.dict(disk.__grains__, {'kernel': 'Linux'}), \
+                patch('salt.modules.disk.usage',
+                      MagicMock(return_value=STUB_DISK_USAGE)):
             mock_cmd = MagicMock(return_value=1)
             with patch.dict(disk.__salt__, {'cmd.run': mock_cmd}):
                 self.assertDictEqual(STUB_DISK_USAGE, disk.usage(args=None))
 
-    @patch('salt.modules.disk.usage', MagicMock(return_value=''))
     def test_usage_none(self):
-        with patch.dict(disk.__grains__, {'kernel': 'Linux'}):
+        with patch.dict(disk.__grains__, {'kernel': 'Linux'}), \
+                patch('salt.modules.disk.usage', MagicMock(return_value='')):
             mock_cmd = MagicMock(return_value=1)
             with patch.dict(disk.__salt__, {'cmd.run': mock_cmd}):
                 self.assertEqual('', disk.usage(args=None))
 
-    @patch('salt.modules.disk.inodeusage', MagicMock(return_value=STUB_DISK_INODEUSAGE))
     def test_inodeusage(self):
-        with patch.dict(disk.__grains__, {'kernel': 'OpenBSD'}):
+        with patch.dict(disk.__grains__, {'kernel': 'OpenBSD'}), \
+                patch('salt.modules.disk.inodeusage',
+                       MagicMock(return_value=STUB_DISK_INODEUSAGE)):
             mock = MagicMock()
             with patch.dict(disk.__salt__, {'cmd.run': mock}):
                 self.assertDictEqual(STUB_DISK_INODEUSAGE, disk.inodeusage(args=None))
 
-    @patch('salt.modules.disk.percent', MagicMock(return_value=STUB_DISK_PERCENT))
     def test_percent(self):
-        with patch.dict(disk.__grains__, {'kernel': 'Linux'}):
+        with patch.dict(disk.__grains__, {'kernel': 'Linux'}), \
+                patch('salt.modules.disk.percent',
+                      MagicMock(return_value=STUB_DISK_PERCENT)):
             mock = MagicMock()
             with patch.dict(disk.__salt__, {'cmd.run': mock}):
                 self.assertDictEqual(STUB_DISK_PERCENT, disk.percent(args=None))
 
-    @patch('salt.modules.disk.percent', MagicMock(return_value='/'))
     def test_percent_args(self):
-        with patch.dict(disk.__grains__, {'kernel': 'Linux'}):
+        with patch.dict(disk.__grains__, {'kernel': 'Linux'}), \
+                patch('salt.modules.disk.percent', MagicMock(return_value='/')):
             mock = MagicMock()
             with patch.dict(disk.__salt__, {'cmd.run': mock}):
                 self.assertEqual('/', disk.percent('/'))
 
-    @patch('salt.modules.disk.blkid', MagicMock(return_value=STUB_DISK_BLKID))
     def test_blkid(self):
-        with patch.dict(disk.__salt__, {'cmd.run_stdout': MagicMock(return_value=1)}):
+        with patch.dict(disk.__salt__, {'cmd.run_stdout': MagicMock(return_value=1)}), \
+                patch('salt.modules.disk.blkid', MagicMock(return_value=STUB_DISK_BLKID)):
             self.assertDictEqual(STUB_DISK_BLKID, disk.blkid())
 
     def test_dump(self):
@@ -147,8 +149,9 @@ class DiskTestCase(TestCase):
         device = '/dev/sdX1'
         fs_type = 'ext4'
         mock = MagicMock(return_value='FSTYPE\n{0}'.format(fs_type))
-        with patch.dict(disk.__salt__, {'cmd.run': mock}):
-            self.assertEqual(disk.fstype(device), fs_type)
+        with patch.dict(disk.__grains__, {'kernel': 'Linux'}):
+            with patch.dict(disk.__salt__, {'cmd.run': mock}):
+                self.assertEqual(disk.fstype(device), fs_type)
 
     @skipIf(not salt.utils.which('resize2fs'), 'resize2fs not found')
     def test_resize2fs(self):

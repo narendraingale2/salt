@@ -8,6 +8,7 @@ and the like, but also useful for basic HTTP testing.
 
 # Import python libs
 from __future__ import absolute_import
+import cgi
 import json
 import logging
 import os.path
@@ -43,6 +44,7 @@ import salt.config
 import salt.version
 from salt._compat import ElementTree as ET
 from salt.template import compile_template
+from salt.utils.decorators import jinja_filter
 from salt import syspaths
 
 # Import 3rd party libs
@@ -88,6 +90,7 @@ log = logging.getLogger(__name__)
 USERAGENT = 'Salt/{0}'.format(salt.version.__version__)
 
 
+@jinja_filter('http_query')
 def query(url,
           method='GET',
           params=None,
@@ -120,7 +123,6 @@ def query(url,
           port=80,
           opts=None,
           backend=None,
-          requests_lib=None,
           ca_bundle=None,
           verify_ssl=None,
           cert=None,
@@ -153,18 +155,7 @@ def query(url,
             opts = {}
 
     if not backend:
-        if requests_lib is not None or 'requests_lib' in opts:
-            salt.utils.warn_until('Oxygen', '"requests_lib:True" has been replaced by "backend:requests", '
-                                            'please change your config')
-            # beware the named arg above
-            if 'backend' in opts:
-                backend = opts['backend']
-            elif requests_lib or opts.get('requests_lib', False):
-                backend = 'requests'
-            else:
-                backend = 'tornado'
-        else:
-            backend = opts.get('backend', 'tornado')
+        backend = opts.get('backend', 'tornado')
 
     if backend == 'requests':
         if HAS_REQUESTS is False:
@@ -178,7 +169,7 @@ def query(url,
 
     # Some libraries don't support separation of url and GET parameters
     # Don't need a try/except block, since Salt depends on tornado
-    url_full = tornado.httputil.url_concat(url, params)
+    url_full = tornado.httputil.url_concat(url, params) if params else url
 
     if ca_bundle is None:
         ca_bundle = get_ca_bundle(opts)
@@ -334,7 +325,10 @@ def query(url,
         result_headers = result.headers
         result_text = result.content
         result_cookies = result.cookies
-        ret['body'] = result.content
+        body = result.content
+        if not isinstance(body, six.text_type):
+            body = body.decode(result.encoding or 'utf-8')
+        ret['body'] = body
     elif backend == 'urllib2':
         request = urllib_request.Request(url_full, data)
         handlers = [
@@ -417,8 +411,14 @@ def query(url,
             }
 
         result_status_code = result.code
-        result_headers = result.headers.headers
+        result_headers = dict(result.info())
         result_text = result.read()
+        if 'Content-Type' in result_headers:
+            res_content_type, res_params = cgi.parse_header(result_headers['Content-Type'])
+            if res_content_type.startswith('text/') and \
+                    'charset' in res_params and \
+                    not isinstance(result_text, six.text_type):
+                result_text = result_text.decode(res_params['charset'])
         ret['body'] = result_text
     else:
         # Tornado
@@ -513,7 +513,13 @@ def query(url,
         result_status_code = result.code
         result_headers = result.headers
         result_text = result.body
-        ret['body'] = result.body
+        if 'Content-Type' in result_headers:
+            res_content_type, res_params = cgi.parse_header(result_headers['Content-Type'])
+            if res_content_type.startswith('text/') and \
+                    'charset' in res_params and \
+                    not isinstance(result_text, six.text_type):
+                result_text = result_text.decode(res_params['charset'])
+        ret['body'] = result_text
         if 'Set-Cookie' in result_headers.keys() and cookies is not None:
             result_cookies = parse_cookie_header(result_headers['Set-Cookie'])
             for item in result_cookies:

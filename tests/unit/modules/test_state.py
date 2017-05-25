@@ -8,8 +8,8 @@ from __future__ import absolute_import
 import os
 
 # Import Salt Testing Libs
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import TestCase, skipIf
-from salt.exceptions import SaltInvocationError
 from tests.support.mock import (
     MagicMock,
     patch,
@@ -20,13 +20,8 @@ from tests.support.mock import (
 
 # Import Salt Libs
 import salt.utils
-from salt.modules import state
-
-# Globals
-state.__salt__ = {}
-state.__context__ = {}
-state.__opts__ = {'cachedir': '/D'}
-state.__pillar__ = {}
+import salt.modules.state as state
+from salt.exceptions import SaltInvocationError
 
 
 class MockState(object):
@@ -141,6 +136,7 @@ class MockState(object):
                 'pillar': {}}
 
         def __init__(self, opts, pillar=None, *args, **kwargs):
+            self.building_highstate = {}
             self.state = MockState.State(opts,
                                          pillar=pillar)
 
@@ -337,11 +333,16 @@ class MockJson(object):
 
 
 @skipIf(NO_MOCK, NO_MOCK_REASON)
-@patch('salt.modules.state.salt.state', MockState())
-class StateTestCase(TestCase):
+class StateTestCase(TestCase, LoaderModuleMockMixin):
     '''
         Test case for salt.modules.state
     '''
+
+    def setup_loader_modules(self):
+        patcher = patch('salt.modules.state.salt.state', MockState())
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return {state: {'__opts__': {'cachedir': '/D'}}}
 
     def test_running(self):
         '''
@@ -769,13 +770,13 @@ class StateTestCase(TestCase):
                     with patch.object(state, 'check_request', mock):
                         self.assertFalse(state.clear_request("A"))
 
-    @patch('salt.modules.state.salt.payload', MockSerial)
     def test_check_request(self):
         '''
             Test to return the state request information
         '''
         mock = MagicMock(return_value=True)
-        with patch.object(os.path, 'join', mock):
+        with patch.object(os.path, 'join', mock), \
+                patch('salt.modules.state.salt.payload', MockSerial):
             mock = MagicMock(side_effect=[True, True, False])
             with patch.object(os.path, 'isfile', mock):
                 with patch('salt.utils.fopen', mock_open()):
@@ -930,14 +931,14 @@ class StateTestCase(TestCase):
                                                               None,
                                                               True))
 
-    @patch('salt.modules.state.tarfile', MockTarFile)
-    @patch('salt.modules.state.json', MockJson())
     def test_pkg(self):
         '''
             Test to execute a packaged state run
         '''
-        mock = MagicMock(side_effect=[False, True, True, True, True, True])
-        with patch.object(os.path, 'isfile', mock):
+        mock = MagicMock(side_effect=[False, True, True, True, True, True, True, True])
+        with patch.object(os.path, 'isfile', mock), \
+                patch('salt.modules.state.tarfile', MockTarFile), \
+                patch('salt.modules.state.json', MockJson()):
             self.assertEqual(state.pkg("/tmp/state_pkg.tgz", "", "md5"), {})
 
             mock = MagicMock(side_effect=[False, 0, 0, 0, 0])

@@ -579,6 +579,41 @@ def sync_output(saltenv=None, refresh=True, extmod_whitelist=None, extmod_blackl
 sync_outputters = salt.utils.alias_function(sync_output, 'sync_outputters')
 
 
+def sync_clouds(saltenv=None, refresh=True, extmod_whitelist=None, extmod_blacklist=None):
+    '''
+    .. versionadded:: Nitrogen
+
+    Sync utility modules from ``salt://_cloud`` to the minion
+
+    saltenv : base
+        The fileserver environment from which to sync. To sync from more than
+        one environment, pass a comma-separated list.
+
+    refresh : True
+        If ``True``, refresh the available execution modules on the minion.
+        This refresh will be performed even if no new utility modules are
+        synced. Set to ``False`` to prevent this refresh.
+
+    extmod_whitelist : None
+        comma-seperated list of modules to sync
+
+    extmod_blacklist : None
+        comma-seperated list of modules to blacklist based on type
+
+    CLI Examples:
+
+    .. code-block:: bash
+
+        salt '*' saltutil.sync_clouds
+        salt '*' saltutil.sync_clouds saltenv=dev
+        salt '*' saltutil.sync_clouds saltenv=base,dev
+    '''
+    ret = _sync('clouds', saltenv, extmod_whitelist, extmod_blacklist)
+    if refresh:
+        refresh_modules()
+    return ret
+
+
 def sync_utils(saltenv=None, refresh=True, extmod_whitelist=None, extmod_blacklist=None):
     '''
     .. versionadded:: 2014.7.0
@@ -763,6 +798,7 @@ def sync_all(saltenv=None, refresh=True, extmod_whitelist=None, extmod_blacklist
     '''
     log.debug('Syncing all')
     ret = {}
+    ret['clouds'] = sync_clouds(saltenv, False, extmod_whitelist, extmod_blacklist)
     ret['beacons'] = sync_beacons(saltenv, False, extmod_whitelist, extmod_blacklist)
     ret['modules'] = sync_modules(saltenv, False, extmod_whitelist, extmod_blacklist)
     ret['states'] = sync_states(saltenv, False, extmod_whitelist, extmod_blacklist)
@@ -1297,7 +1333,7 @@ def cmd_iter(tgt,
         yield ret
 
 
-def runner(name, **kwargs):
+def runner(name, arg=None, kwarg=None, full_return=False, saltenv='base', jid=None, **kwargs):
     '''
     Execute a runner function. This function must be run on the master,
     either by targeting a minion running on a master or by using
@@ -1319,11 +1355,17 @@ def runner(name, **kwargs):
     .. code-block:: bash
 
         salt master_minion saltutil.runner jobs.list_jobs
+        salt master_minion saltutil.runner test.arg arg="['baz']" kwarg="{'foo': 'bar'}"
     '''
-    jid = kwargs.pop('__orchestration_jid__', None)
-    saltenv = kwargs.pop('__env__', 'base')
-    full_return = kwargs.pop('full_return', False)
+    if arg is None:
+        arg = []
+    if kwarg is None:
+        kwarg = {}
+    jid = kwargs.pop('__orchestration_jid__', jid)
+    saltenv = kwargs.pop('__env__', saltenv)
     kwargs = salt.utils.clean_kwargs(**kwargs)
+    if kwargs:
+        kwarg.update(kwargs)
 
     if 'master_job_cache' not in __opts__:
         master_config = os.path.join(os.path.dirname(__opts__['conf_file']),
@@ -1336,18 +1378,19 @@ def runner(name, **kwargs):
     if name in rclient.functions:
         aspec = salt.utils.args.get_function_argspec(rclient.functions[name])
         if 'saltenv' in aspec.args:
-            kwargs['saltenv'] = saltenv
+            kwarg['saltenv'] = saltenv
 
     if jid:
         salt.utils.event.fire_args(
             __opts__,
             jid,
-            {'type': 'runner', 'name': name, 'args': kwargs},
+            {'type': 'runner', 'name': name, 'args': arg, 'kwargs': kwarg},
             prefix='run'
         )
 
     return rclient.cmd(name,
-                       kwarg=kwargs,
+                       arg=arg,
+                       kwarg=kwarg,
                        print_event=False,
                        full_return=full_return)
 

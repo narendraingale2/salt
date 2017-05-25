@@ -249,9 +249,10 @@ to the next master in the list if it finds the existing one is dead.
 
 Default: ``False``
 
-If :conf_minion:`master` is a list of addresses and :conf_minion`master_type` is ``failover``, shuffle them before trying to
-connect to distribute the minions over all available masters. This uses
-Python's :func:`random.shuffle <python2:random.shuffle>` method.
+If :conf_minion:`master` is a list of addresses and :conf_minion`master_type`
+is ``failover``, shuffle them before trying to connect to distribute the
+minions over all available masters. This uses Python's :func:`random.shuffle
+<python2:random.shuffle>` method.
 
 .. code-block:: yaml
 
@@ -264,9 +265,10 @@ Python's :func:`random.shuffle <python2:random.shuffle>` method.
 
 Default: ``False``
 
-If :conf_minion:`master` is a list of addresses, shuffle them before trying to
-connect to distribute the minions over all available masters. This uses
-Python's :func:`random.randint <python2:random.randint>` method.
+If :conf_minion:`master` is a list of addresses, and :conf_minion`master_type`
+is set to ``failover`` shuffle them before trying to connect to distribute the
+minions over all available masters. This uses Python's :func:`random.shuffle
+<python2:random.shuffle>` method.
 
 .. code-block:: yaml
 
@@ -803,6 +805,24 @@ restart.
 
 .. conf_minion:: recon_default
 
+``random_startup_delay``
+------------------------
+
+Default: ``0``
+
+The maximum bound for an interval in which a minion will randomly sleep upon starting
+up prior to attempting to connect to a master. This can be used to splay connection attempts
+for cases where many minions starting up at once may place undue load on a master.
+
+For example, setting this to ``5`` will tell a minion to sleep for a value between ``0``
+and ``5`` seconds.
+
+.. code-block:: yaml
+
+    random_startup_delay: 5
+
+.. conf_minion:: random_startup_delay
+
 ``recon_default``
 -----------------
 
@@ -1266,6 +1286,7 @@ whitelist an empty list.
 
 Valid options:
   - beacons
+  - clouds
   - sdb
   - modules
   - states
@@ -2254,6 +2275,20 @@ ZeroMQ is installed.
 
 .. conf_minion:: failhard
 
+``tcp_authentication_retries``
+------------------------------
+
+Default: ``5``
+
+The number of times to retry authenticating with the salt master when it comes
+back online.
+
+Zeromq does a lot to make sure when connections come back online that they
+reauthenticate. The tcp transport should try to connect with a new connection
+if the old one times out on reauthenticating.
+
+`-1` for infinite tries.
+
 ``failhard``
 ------------
 
@@ -2286,17 +2321,6 @@ file.
     Salt creates files in the ``minion.d`` directory for its own use. These
     files are prefixed with an underscore. A common example of this is the
     ``_schedule.conf`` file.
-
-.. note::
-
-    The configuration system supports adding the special token ``{id}`` to this
-    option.  At startup ``{id}`` will be replaced by the minion's ID, and the
-    default_include directory will be set here.  For example, if the minion's
-    ID is 'webserver' and ``default_include`` is set to ``minion.d/{id}/*.conf``
-    then the default_include directive will be set to ``minion.d/webserver/*.conf``.
-    This is for situations when there are multiple minions or proxy minions
-    running on a single machine that need different configurations, specifically for
-    their schedulers.
 
 
 ``include``

@@ -9,6 +9,7 @@ import socket
 import os.path
 
 # Import Salt Testing Libs
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import TestCase, skipIf
 from tests.support.mock import (
     mock_open,
@@ -21,21 +22,27 @@ from tests.support.mock import (
 # Import Salt Libs
 import salt.ext.six as six
 import salt.utils
-from salt.modules import network
+import salt.modules.network as network
 from salt.exceptions import CommandExecutionError
 if six.PY2:
-    import salt.ext.ipaddress
-
-# Globals
-network.__grains__ = {}
-network.__salt__ = {}
+    import salt.ext.ipaddress as ipaddress
+    HAS_IPADDRESS = True
+else:
+    try:
+        import ipaddress
+        HAS_IPADDRESS = True
+    except ImportError:
+        HAS_IPADDRESS = False
 
 
 @skipIf(NO_MOCK, NO_MOCK_REASON)
-class NetworkTestCase(TestCase):
+class NetworkTestCase(TestCase, LoaderModuleMockMixin):
     '''
     Test cases for salt.modules.network
     '''
+    def setup_loader_modules(self):
+        return {network: {}}
+
     def test_wol_bad_mac(self):
         '''
         tests network.wol with bad mac
@@ -123,20 +130,21 @@ class NetworkTestCase(TestCase):
         '''
         Test for Performs a DNS lookup with dig
         '''
-        with patch.object(salt.utils.network, 'sanitize_host',
-                          return_value='A'):
-            with patch.dict(network.__salt__, {'cmd.run':
-                                               MagicMock(return_value='A')}):
-                self.assertEqual(network.dig('host'), 'A')
+        with patch('salt.utils.which', MagicMock(return_value='dig')), \
+                patch.object(salt.utils.network, 'sanitize_host',
+                             return_value='A'), \
+                patch.dict(network.__salt__, {'cmd.run':
+                                              MagicMock(return_value='A')}):
+            self.assertEqual(network.dig('host'), 'A')
 
-    @patch('salt.utils.which', MagicMock(return_value=''))
     def test_arp(self):
         '''
         Test for return the arp table from the minion
         '''
         with patch.dict(network.__salt__,
                         {'cmd.run':
-                         MagicMock(return_value='A,B,C,D\nE,F,G,H\n')}):
+                         MagicMock(return_value='A,B,C,D\nE,F,G,H\n')}), \
+                patch('salt.utils.which', MagicMock(return_value='')):
             self.assertDictEqual(network.arp(), {})
 
     def test_interfaces(self):
@@ -231,64 +239,64 @@ class NetworkTestCase(TestCase):
                     with patch.dict(network.__grains__, {'os_family': 'A'}):
                         self.assertTrue(network.mod_hostname('hostname'))
 
-    @patch('socket.socket')
-    def test_connect(self, mock_socket):
+    def test_connect(self):
         '''
         Test for Test connectivity to a host using a particular
         port from the minion.
         '''
-        self.assertDictEqual(network.connect(False, 'port'),
-                             {'comment': 'Required argument, host, is missing.',
-                              'result': False})
+        with patch('socket.socket') as mock_socket:
+            self.assertDictEqual(network.connect(False, 'port'),
+                                 {'comment': 'Required argument, host, is missing.',
+                                  'result': False})
 
-        self.assertDictEqual(network.connect('host', False),
-                             {'comment': 'Required argument, port, is missing.',
-                              'result': False})
+            self.assertDictEqual(network.connect('host', False),
+                                 {'comment': 'Required argument, port, is missing.',
+                                  'result': False})
 
-        ret = 'Unable to connect to host (0) on tcp port port'
-        mock_socket.side_effect = Exception('foo')
-        with patch.object(salt.utils.network, 'sanitize_host',
-                          return_value='A'):
-            with patch.object(socket, 'getaddrinfo',
-                              return_value=[['ipv4', 'A', 6, 'B', '0.0.0.0']]):
-                self.assertDictEqual(network.connect('host', 'port'),
-                                     {'comment': ret, 'result': False})
+            ret = 'Unable to connect to host (0) on tcp port port'
+            mock_socket.side_effect = Exception('foo')
+            with patch.object(salt.utils.network, 'sanitize_host',
+                              return_value='A'):
+                with patch.object(socket, 'getaddrinfo',
+                                  return_value=[['ipv4', 'A', 6, 'B', '0.0.0.0']]):
+                    self.assertDictEqual(network.connect('host', 'port'),
+                                         {'comment': ret, 'result': False})
 
-        ret = 'Successfully connected to host (0) on tcp port port'
-        mock_socket.side_effect = MagicMock()
-        mock_socket.settimeout().return_value = None
-        mock_socket.connect().return_value = None
-        mock_socket.shutdown().return_value = None
-        with patch.object(salt.utils.network, 'sanitize_host',
-                          return_value='A'):
-            with patch.object(socket,
-                              'getaddrinfo',
-                              return_value=[['ipv4',
-                                            'A', 6, 'B', '0.0.0.0']]):
-                self.assertDictEqual(network.connect('host', 'port'),
-                                     {'comment': ret, 'result': True})
+            ret = 'Successfully connected to host (0) on tcp port port'
+            mock_socket.side_effect = MagicMock()
+            mock_socket.settimeout().return_value = None
+            mock_socket.connect().return_value = None
+            mock_socket.shutdown().return_value = None
+            with patch.object(salt.utils.network, 'sanitize_host',
+                              return_value='A'):
+                with patch.object(socket,
+                                  'getaddrinfo',
+                                  return_value=[['ipv4',
+                                                'A', 6, 'B', '0.0.0.0']]):
+                    self.assertDictEqual(network.connect('host', 'port'),
+                                         {'comment': ret, 'result': True})
 
-    @skipIf(not six.PY2, 'test applies only to python 2')
+    @skipIf(HAS_IPADDRESS is False, 'unable to import \'ipaddress\'')
     def test_is_private(self):
         '''
         Test for Check if the given IP address is a private address
         '''
-        with patch.object(salt.ext.ipaddress.IPv4Address, 'is_private',
+        with patch.object(ipaddress.IPv4Address, 'is_private',
                           return_value=True):
             self.assertTrue(network.is_private('0.0.0.0'))
-        with patch.object(salt.ext.ipaddress.IPv6Address, 'is_private',
+        with patch.object(ipaddress.IPv6Address, 'is_private',
                           return_value=True):
             self.assertTrue(network.is_private('::1'))
 
-    @skipIf(not six.PY2, 'test applies only to python 2')
+    @skipIf(HAS_IPADDRESS is False, 'unable to import \'ipaddress\'')
     def test_is_loopback(self):
         '''
         Test for Check if the given IP address is a loopback address
         '''
-        with patch.object(salt.ext.ipaddress.IPv4Address, 'is_loopback',
+        with patch.object(ipaddress.IPv4Address, 'is_loopback',
                           return_value=True):
             self.assertTrue(network.is_loopback('127.0.0.1'))
-        with patch.object(salt.ext.ipaddress.IPv6Address, 'is_loopback',
+        with patch.object(ipaddress.IPv6Address, 'is_loopback',
                           return_value=True):
             self.assertTrue(network.is_loopback('::1'))
 

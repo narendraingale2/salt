@@ -8,6 +8,7 @@ from __future__ import absolute_import
 import os
 
 # Import Salt Testing libs
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import TestCase, skipIf
 from tests.support.mock import (
     NO_MOCK,
@@ -17,14 +18,8 @@ from tests.support.mock import (
 )
 
 # Import Salt Libs
-from salt.states import archive as archive
+import salt.states.archive as archive
 from salt.ext.six.moves import zip  # pylint: disable=import-error,redefined-builtin
-
-# Globals
-archive.__salt__ = {}
-archive.__grains__ = {'os': 'FooOS!'}
-archive.__opts__ = {"cachedir": "/tmp", "test": False}
-archive.__env__ = 'test'
 
 
 def _isfile_side_effect(path):
@@ -46,13 +41,18 @@ def _isfile_side_effect(path):
 
 
 @skipIf(NO_MOCK, NO_MOCK_REASON)
-class ArchiveTestCase(TestCase):
+class ArchiveTestCase(TestCase, LoaderModuleMockMixin):
 
-    def setUp(self):
-        super(ArchiveTestCase, self).setUp()
-
-    def tearDown(self):
-        super(ArchiveTestCase, self).tearDown()
+    def setup_loader_modules(self):
+        return {
+            archive: {
+                '__grains__': {'os': 'FooOS!'},
+                '__opts__': {'cachedir': '/tmp',
+                             'test': False,
+                             'hash_type': 'sha256'},
+                '__env__': 'test'
+            }
+        }
 
     def test_extracted_tar(self):
         '''
@@ -93,7 +93,8 @@ class ArchiveTestCase(TestCase):
         isfile_mock = MagicMock(side_effect=_isfile_side_effect)
 
         with patch.dict(archive.__opts__, {'test': False,
-                                           'cachedir': tmp_dir}):
+                                           'cachedir': tmp_dir,
+                                           'hash_type': 'sha256'}):
             with patch.dict(archive.__salt__, {'file.directory_exists': mock_false,
                                                'file.file_exists': mock_false,
                                                'state.single': state_single_mock,

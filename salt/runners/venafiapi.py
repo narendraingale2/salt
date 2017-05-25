@@ -60,7 +60,7 @@ def _base_url():
     Return the base_url
     '''
     return __opts__.get('venafi', {}).get(
-        'base_url', 'https://api.venafi.io/v1'
+        'base_url', 'https://api.venafi.cloud/v1'
     )
 
 
@@ -352,7 +352,7 @@ def _id_map(minion_id, dns_name):
     bank = 'venafi/minions'
     cache = salt.cache.Cache(__opts__, syspaths.CACHE_DIR)
     dns_names = cache.fetch(bank, minion_id)
-    if dns_names is None:
+    if not isinstance(dns_names, list):
         dns_names = []
     if dns_name not in dns_names:
         dns_names.append(dns_name)

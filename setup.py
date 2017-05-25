@@ -5,7 +5,7 @@ The setup script for salt
 '''
 
 # pylint: disable=file-perms,ungrouped-imports,wrong-import-order,wrong-import-position,repr-flag-used-in-string
-# pylint: disable=3rd-party-local-module-not-gated
+# pylint: disable=3rd-party-local-module-not-gated,resource-leakage
 # pylint: disable=C0111,E1101,E1103,F0401,W0611,W0201,W0232,R0201,R0902,R0903
 
 # For Python 2.5.  A no-op on 2.6 and above.
@@ -120,9 +120,14 @@ SALT_VERSION = os.path.join(os.path.abspath(SETUP_DIRNAME), 'salt', 'version.py'
 SALT_VERSION_HARDCODED = os.path.join(os.path.abspath(SETUP_DIRNAME), 'salt', '_version.py')
 SALT_SYSPATHS_HARDCODED = os.path.join(os.path.abspath(SETUP_DIRNAME), 'salt', '_syspaths.py')
 SALT_REQS = os.path.join(os.path.abspath(SETUP_DIRNAME), 'requirements', 'base.txt')
-SALT_WINDOWS_REQS = os.path.join(os.path.abspath(SETUP_DIRNAME), 'requirements', 'windows.txt')
 SALT_ZEROMQ_REQS = os.path.join(os.path.abspath(SETUP_DIRNAME), 'requirements', 'zeromq.txt')
 SALT_RAET_REQS = os.path.join(os.path.abspath(SETUP_DIRNAME), 'requirements', 'raet.txt')
+if IS_PY3:
+    SALT_WINDOWS_REQS = os.path.join(
+        os.path.abspath(SETUP_DIRNAME), 'pkg', 'windows', 'req_3.txt')
+else:
+    SALT_WINDOWS_REQS = os.path.join(
+        os.path.abspath(SETUP_DIRNAME), 'pkg', 'windows', 'req_2.txt')
 
 # Salt SSH Packaging Detection
 PACKAGED_FOR_SALT_SSH_FILE = os.path.join(os.path.abspath(SETUP_DIRNAME), '.salt-ssh-package')

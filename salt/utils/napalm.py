@@ -210,6 +210,8 @@ def get_device_opts(opts, salt_obj=None):
     # get driver object form NAPALM
     if 'config_lock' not in network_device['OPTIONAL_ARGS']:
         network_device['OPTIONAL_ARGS']['config_lock'] = False
+    if network_device['ALWAYS_ALIVE'] and 'keepalive' not in network_device['OPTIONAL_ARGS']:
+        network_device['OPTIONAL_ARGS']['keepalive'] = 5  # 5 seconds keepalive
     return network_device
 
 
@@ -332,3 +334,74 @@ def proxy_napalm_wrap(func):
             wrapped_global_namespace['napalm_device']['__opts__'] = opts
         return func(*args, **kwargs)
     return func_wrapper
+
+
+def default_ret(name):
+    '''
+    Return the default dict of the state output.
+    '''
+    ret = {
+        'name': name,
+        'pchanges': {},
+        'changes': {},
+        'result': False,
+        'comment': ''
+    }
+    return ret
+
+
+def loaded_ret(ret, loaded, test, debug):
+    '''
+    Return the final state output.
+
+    ret
+        The initial state output structure.
+
+    loaded
+        The loaded dictionary.
+    '''
+    # Always get the comment
+    ret.update({
+        'comment': loaded.get('comment', '')
+    })
+    pchanges = {}
+    if not loaded.get('result', False):
+        # Failure of some sort
+        return ret
+    if debug:
+        # Always check for debug
+        pchanges.update({
+            'loaded_config': loaded.get('loaded_config', '')
+        })
+        ret.update({
+            "pchanges": pchanges
+        })
+    if not loaded.get('already_configured', True):
+        # We're making changes
+        pchanges.update({
+            "diff": loaded.get('diff', '')
+        })
+        ret.update({
+            'pchanges': pchanges
+        })
+        if test:
+            for k, v in pchanges.items():
+                ret.update({
+                    "comment": "{}:\n{}\n\n{}".format(k, v, ret.get("comment", ''))
+                })
+            ret.update({
+                'result': None,
+            })
+            return ret
+        # Not test, changes were applied
+        ret.update({
+            'result': True,
+            'changes': pchanges,
+            'comment': "Configuration changed!\n{}".format(ret.get('comment', ''))
+        })
+        return ret
+    # No changes
+    ret.update({
+        'result': True
+    })
+    return ret

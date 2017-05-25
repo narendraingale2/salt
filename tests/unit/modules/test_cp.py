@@ -7,6 +7,7 @@
 from __future__ import absolute_import
 
 # Import Salt Testing Libs
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import skipIf, TestCase
 from tests.support.mock import (
     Mock,
@@ -18,25 +19,21 @@ from tests.support.mock import (
 )
 
 # Import Salt Libs
-from salt.modules import cp
-from salt.utils import templates
-from salt.exceptions import CommandExecutionError
 import salt.utils
 import salt.transport
-
-# Globals
-cp.__salt__ = {}
-cp.__opts__ = {}
-cp.__pillar__ = {}
-cp.__grains__ = {}
-cp.__context__ = {}
+import salt.modules.cp as cp
+from salt.utils import templates
+from salt.exceptions import CommandExecutionError
 
 
 @skipIf(NO_MOCK, NO_MOCK_REASON)
-class CpTestCase(TestCase):
+class CpTestCase(TestCase, LoaderModuleMockMixin):
     '''
     TestCase for salt.modules.cp module
     '''
+
+    def setup_loader_modules(self):
+        return {cp: {}}
 
     def test__render_filenames_undefined_template(self):
         '''
@@ -88,15 +85,15 @@ class CpTestCase(TestCase):
                 self.assertEqual(cp._render_filenames(
                                  path, dest, saltenv, template), ret)
 
-    @patch('salt.modules.cp.hash_file', MagicMock(return_value=False))
     def test_get_file_not_found(self):
         '''
         Test if get_file can't find the file.
         '''
-        path = 'salt://saltines'
-        dest = '/srv/salt/cheese'
-        ret = ''
-        self.assertEqual(cp.get_file(path, dest), ret)
+        with patch('salt.modules.cp.hash_file', MagicMock(return_value=False)):
+            path = 'salt://saltines'
+            dest = '/srv/salt/cheese'
+            ret = ''
+            self.assertEqual(cp.get_file(path, dest), ret)
 
     def test_get_file_str_success(self):
         '''
@@ -130,29 +127,27 @@ class CpTestCase(TestCase):
 
         self.assertEqual(cp.push_dir(path), ret)
 
-    @patch(
-        'salt.modules.cp.os.path',
-        MagicMock(isfile=Mock(return_value=True), wraps=cp.os.path))
-    @patch.multiple(
-        'salt.modules.cp',
-        _auth=MagicMock(**{'return_value.gen_token.return_value': 'token'}),
-        __opts__={'id': 'abc', 'file_buffer_size': 10})
-    @patch('salt.utils.fopen', mock_open(read_data='content'))
-    @patch('salt.transport.Channel.factory', MagicMock())
     def test_push(self):
         '''
         Test if push works with good posix path.
         '''
-        response = cp.push('/saltines/test.file')
-        self.assertEqual(response, True)
-        self.assertEqual(salt.utils.fopen().read.call_count, 2)
-        salt.transport.Channel.factory({}).send.assert_called_once_with(
-            dict(
-                loc=salt.utils.fopen().tell(),
-                cmd='_file_recv',
-                tok='token',
-                path=['saltines', 'test.file'],
-                data='',  # data is empty here because load['data'] is overwritten
-                id='abc'
+        with patch('salt.modules.cp.os.path',
+                   MagicMock(isfile=Mock(return_value=True), wraps=cp.os.path)), \
+                patch.multiple('salt.modules.cp',
+                               _auth=MagicMock(**{'return_value.gen_token.return_value': 'token'}),
+                               __opts__={'id': 'abc', 'file_buffer_size': 10}), \
+                patch('salt.utils.fopen', mock_open(read_data='content')), \
+                patch('salt.transport.Channel.factory', MagicMock()):
+            response = cp.push('/saltines/test.file')
+            self.assertEqual(response, True)
+            self.assertEqual(salt.utils.fopen().read.call_count, 2)  # pylint: disable=resource-leakage
+            salt.transport.Channel.factory({}).send.assert_called_once_with(
+                dict(
+                    loc=salt.utils.fopen().tell(),  # pylint: disable=resource-leakage
+                    cmd='_file_recv',
+                    tok='token',
+                    path=['saltines', 'test.file'],
+                    data='',  # data is empty here because load['data'] is overwritten
+                    id='abc'
+                )
             )
-        )

@@ -6,22 +6,25 @@ from __future__ import absolute_import
 # Salt testing libs
 from tests.support.unit import skipIf, TestCase
 from tests.support.mock import NO_MOCK, NO_MOCK_REASON, patch, Mock
+from tests.support.mixins import LoaderModuleMockMixin
 
 # Salt libs
-from salt.beacons import adb
-
-# Globals
-adb.__salt__ = {}
+import salt.beacons.adb as adb
 
 
 @skipIf(NO_MOCK, NO_MOCK_REASON)
-class ADBBeaconTestCase(TestCase):
+class ADBBeaconTestCase(TestCase, LoaderModuleMockMixin):
     '''
     Test case for salt.beacons.adb
     '''
-    def setUp(self):
-        adb.last_state = {}
-        adb.last_state_extra = {'no_devices': False}
+
+    def setup_loader_modules(self):
+        return {
+            adb: {
+                'last_state': {},
+                'last_state_extra': {'no_devices': False}
+            }
+        }
 
     def test_no_adb_command(self):
         with patch('salt.utils.which') as mock:
@@ -45,36 +48,35 @@ class ADBBeaconTestCase(TestCase):
         config = []
 
         log_mock = Mock()
-        adb.log = log_mock
+        with patch.object(adb, 'log', log_mock):
 
-        ret = adb.beacon(config)
+            ret = adb.beacon(config)
 
-        self.assertEqual(ret, [])
-        log_mock.info.assert_called_once_with('Configuration for adb beacon must be a dict.')
+            self.assertEqual(ret, [])
+            log_mock.info.assert_called_once_with('Configuration for adb beacon must be a dict.')
 
     def test_empty_config(self):
         config = {}
 
         log_mock = Mock()
-        adb.log = log_mock
+        with patch.object(adb, 'log', log_mock):
+            ret = adb.beacon(config)
 
-        ret = adb.beacon(config)
-
-        self.assertEqual(ret, [])
-        log_mock.info.assert_called_once_with('Configuration for adb beacon must include a states array.')
+            self.assertEqual(ret, [])
+            log_mock.info.assert_called_once_with('Configuration for adb beacon must include a states array.')
 
     def test_invalid_states(self):
         config = {'states': ['Random', 'Failings']}
 
         log_mock = Mock()
-        adb.log = log_mock
+        with patch.object(adb, 'log', log_mock):
 
-        ret = adb.beacon(config)
+            ret = adb.beacon(config)
 
-        self.assertEqual(ret, [])
-        log_mock.info.assert_called_once_with('Need a one of the following adb states:'
-                                              ' offline, bootloader, device, host, recovery, '
-                                              'no permissions, sideload, unauthorized, unknown, missing')
+            self.assertEqual(ret, [])
+            log_mock.info.assert_called_once_with('Need a one of the following adb states:'
+                                                  ' offline, bootloader, device, host, recovery, '
+                                                  'no permissions, sideload, unauthorized, unknown, missing')
 
     def test_device_state(self):
         config = {'states': ['device']}
@@ -204,7 +206,7 @@ class ADBBeaconTestCase(TestCase):
     def test_with_user(self):
         config = {'states': ['device'], 'user': 'fred'}
 
-        mock = Mock(return_value='* daemon started successfully *\nList of devices attached\nHTC\tdevice',)
+        mock = Mock(return_value='* daemon started successfully *\nList of devices attached\nHTC\tdevice')
         with patch.dict(adb.__salt__, {'cmd.run': mock}):
             ret = adb.beacon(config)
             mock.assert_called_once_with('adb devices', runas='fred')

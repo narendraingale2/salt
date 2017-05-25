@@ -12,36 +12,39 @@ from __future__ import absolute_import
 import sys
 
 # Import Salt Testing libs
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import skipIf, TestCase
 from tests.support.helpers import TestsLoggingHandler, ForceImportErrorOn
 from tests.support.mock import NO_MOCK, NO_MOCK_REASON, MagicMock, patch
 
 # Import salt libs
-from salt.modules import virtualenv_mod
+import salt.modules.virtualenv_mod as virtualenv_mod
 from salt.exceptions import CommandExecutionError
-
-virtualenv_mod.__salt__ = {}
-virtualenv_mod.__opts__['venv_bin'] = 'virtualenv'
-base_virtualenv_mock = MagicMock()
-base_virtualenv_mock.__version__ = '1.9.1'
 
 
 @skipIf(NO_MOCK, NO_MOCK_REASON)
-@patch('salt.utils.which', lambda bin_name: bin_name)
-@patch.dict('sys.modules', {'virtualenv': base_virtualenv_mock})
-class VirtualenvTestCase(TestCase):
+class VirtualenvTestCase(TestCase, LoaderModuleMockMixin):
+
+    def setup_loader_modules(self):
+        base_virtualenv_mock = MagicMock()
+        base_virtualenv_mock.__version__ = '1.9.1'
+        patcher = patch('salt.utils.which', lambda exe: exe)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return {
+            virtualenv_mod: {
+                '__opts__': {'venv_bin': 'virtualenv'},
+                '_install_script': MagicMock(return_value={'retcode': 0,
+                                                           'stdout': 'Installed script!',
+                                                           'stderr': ''}),
+                'sys.modules': {'virtualenv': base_virtualenv_mock}
+            }
+        }
 
     def test_issue_6029_deprecated_distribute(self):
         mock = MagicMock(return_value={'retcode': 0, 'stdout': ''})
 
         with patch.dict(virtualenv_mod.__salt__, {'cmd.run_all': mock}):
-            virtualenv_mod._install_script = MagicMock(
-                return_value={
-                    'retcode': 0,
-                    'stdout': 'Installed script!',
-                    'stderr': ''
-                }
-            )
             virtualenv_mod.create(
                 '/tmp/foo', system_site_packages=True, distribute=True
             )
@@ -57,8 +60,7 @@ class VirtualenvTestCase(TestCase):
             virtualenv_mock.__version__ = '1.10rc1'
             mock = MagicMock(return_value={'retcode': 0, 'stdout': ''})
             with patch.dict(virtualenv_mod.__salt__, {'cmd.run_all': mock}):
-                with patch.dict('sys.modules',
-                                {'virtualenv': virtualenv_mock}):
+                with patch.dict('sys.modules', {'virtualenv': virtualenv_mock}):
                     virtualenv_mod.create(
                         '/tmp/foo', system_site_packages=True, distribute=True
                     )
@@ -177,11 +179,9 @@ class VirtualenvTestCase(TestCase):
         # <---- Virtualenv using pyvenv options ------------------------------
 
         # ----- pyvenv using virtualenv options ----------------------------->
-        virtualenv_mod.__salt__ = {'cmd.which_bin': lambda _: 'pyvenv'}
-
         mock = MagicMock(return_value={'retcode': 0, 'stdout': ''})
-
-        with patch.dict(virtualenv_mod.__salt__, {'cmd.run_all': mock}):
+        with patch.dict(virtualenv_mod.__salt__, {'cmd.run_all': mock,
+                                                  'cmd.which_bin': lambda _: 'pyvenv'}):
             self.assertRaises(
                 CommandExecutionError,
                 virtualenv_mod.create,

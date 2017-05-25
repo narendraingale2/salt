@@ -60,6 +60,7 @@ log = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 # Define the module's virtual name
 __virtualname__ = 'docker_container'
+__virtual_aliases__ = ('moby_container',)
 
 
 def __virtual__():
@@ -137,9 +138,9 @@ def running(name,
             the image needs to be built from a Dockerfile or loaded from a
             saved image, or if you would like to use requisites to trigger a
             replacement of the container when the image is updated, then the
-            :py:func:`docker.image_present
-            <salt.modules.docker.image_present>` should be used to manage the
-            image.
+            :py:func:`docker_image.present
+            <salt.states.dockermod.image_present>` state should be used to
+            manage the image.
 
     .. _docker-container-running-skip-translate:
 
@@ -248,9 +249,9 @@ def running(name,
 
     shutdown_timeout : 10
         If the container needs to be replaced, the container will be stopped
-        using :py:func:`docker.stop <salt.modules.docker.stop>`. The value
+        using :py:func:`docker.stop <salt.modules.dockermod.stop>`. The value
         of this parameter will be passed to :py:func:`docker.stop
-        <salt.modules.docker.stop>` as the ``timeout`` value, telling Docker
+        <salt.modules.dockermod.stop>` as the ``timeout`` value, telling Docker
         how long to wait for a graceful shutdown before killing the container.
 
         .. versionchanged:: Nitrogen
@@ -1677,7 +1678,7 @@ def running(name,
         return result
 
     # If we're not skipping the comparison, then the assumption is that
-    # temp_container will be discared, unless the comparison reveals
+    # temp_container will be discarded, unless the comparison reveals
     # differences, in which case we'll set cleanup_temp = False to prevent it
     # from being cleaned.
     cleanup_temp = not skip_comparison
@@ -1773,6 +1774,10 @@ def running(name,
     #     were detected, so the the temp container was discarded
     if not cleanup_temp and (not exists or (exists and start)) \
             or (start and cleanup_temp and pre_state != 'running'):
+        if __opts__['test']:
+            ret['result'] = None
+            comments.append('Container would be started')
+            return _format_comments(ret, comments)
         try:
             post_state = __salt__['docker.start'](name)['state']['new']
         except Exception as exc:

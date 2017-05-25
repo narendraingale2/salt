@@ -7,6 +7,7 @@ Unit tests for the docker state
 from __future__ import absolute_import
 
 # Import Salt Testing Libs
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import skipIf, TestCase
 from tests.support.mock import (
     Mock,
@@ -16,20 +17,25 @@ from tests.support.mock import (
 )
 
 # Import Salt Libs
-import salt.modules.docker as docker_mod
+import salt.modules.dockermod as docker_mod
 import salt.states.docker_network as docker_state
-
-docker_mod.__context__ = {'docker.docker_version': ''}
-docker_mod.__salt__ = {}
-docker_state.__context__ = {}
-docker_state.__opts__ = {'test': False}
 
 
 @skipIf(NO_MOCK, NO_MOCK_REASON)
-class DockerNetworkTestCase(TestCase):
+class DockerNetworkTestCase(TestCase, LoaderModuleMockMixin):
     '''
     Test docker_network states
     '''
+    def setup_loader_modules(self):
+        return {
+            docker_mod: {
+                '__context__': {'docker.docker_version': ''}
+            },
+            docker_state: {
+                '__opts__': {'test': False}
+            }
+        }
+
     def test_present(self):
         '''
         Test docker_network.present
@@ -48,7 +54,10 @@ class DockerNetworkTestCase(TestCase):
                 'network_foo',
                 containers=['container'],
                 )
-        docker_create_network.assert_called_with('network_foo', driver=None)
+        docker_create_network.assert_called_with('network_foo',
+                                                 driver=None,
+                                                 driver_opts=None,
+                                                 check_duplicate=True)
         docker_connect_container_to_network.assert_called_with('abcd',
                                                                  'network_foo')
         self.assertEqual(ret, {'name': 'network_foo',

@@ -8,6 +8,7 @@ from __future__ import absolute_import
 
 # Import Salt Testing libs
 from salt.utils import is_linux
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import TestCase, skipIf
 
 # Import salt libs
@@ -41,7 +42,10 @@ _HASHES = dict(
 
 
 @skipIf(not is_linux(), 'minion is not Linux')
-class LinuxShadowTest(TestCase):
+class LinuxShadowTest(TestCase, LoaderModuleMockMixin):
+
+    def setup_loader_modules(self):
+        return {shadow: {}}
 
     def test_gen_password(self):
         '''
@@ -57,3 +61,11 @@ class LinuxShadowTest(TestCase):
                 ),
                 hash_info['pw_hash']
             )
+
+    # 'list_users' function tests: 1
+
+    def test_list_users(self):
+        '''
+        Test if it returns a list of all users
+        '''
+        self.assertTrue(shadow.list_users())

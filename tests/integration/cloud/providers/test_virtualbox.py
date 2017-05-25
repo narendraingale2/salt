@@ -5,13 +5,12 @@
 # Import Python Libs
 from __future__ import absolute_import
 import os
-import unittest
 import logging
 import socket
 
 # Import Salt Testing Libs
 import tests.integration as integration
-from tests.support.unit import skipIf
+from tests.support.unit import TestCase, skipIf
 from tests.integration.cloud.helpers.virtualbox import (VirtualboxTestCase,
                                                         VirtualboxCloudTestCase,
                                                         CONFIG_NAME,
@@ -343,7 +342,8 @@ class VirtualboxProviderHeavyTests(VirtualboxCloudTestCase):
             self.assertIsIpAddress(ip_address)
 
 
-class BaseVirtualboxTests(unittest.TestCase):
+@skipIf(HAS_LIBS is False, 'The \'vboxapi\' library is not available')
+class BaseVirtualboxTests(TestCase):
     def test_get_manager(self):
         self.assertIsNotNone(vb_get_box())
 
@@ -399,7 +399,7 @@ class BootVirtualboxTests(VirtualboxTestCase):
             self.assertEqual(machine_get_machinestate_str(machine), "PoweredOff")
 
 
-class XpcomConversionTests(unittest.TestCase):
+class XpcomConversionTests(TestCase):
     @classmethod
     def _mock_xpcom_object(cls, interface_name=None, attributes=None):
         class XPCOM(object):

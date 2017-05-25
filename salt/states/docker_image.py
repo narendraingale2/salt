@@ -46,6 +46,7 @@ log = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 # Define the module's virtual name
 __virtualname__ = 'docker_image'
+__virtual_aliases__ = ('moby_image',)
 
 
 def __virtual__():
@@ -102,15 +103,15 @@ def present(name,
                 - build: /home/myuser/docker/myimage
                 - dockerfile: Dockerfile.alternative
 
-            .. versionadded:: 2016.11.0
+        .. versionadded:: 2016.11.0
 
         The image will be built using :py:func:`docker.build
-        <salt.modules.docker.build>` and the specified image name and tag
+        <salt.modules.dockermod.build>` and the specified image name and tag
         will be applied to it.
 
     load
         Loads a tar archive created with :py:func:`docker.load
-        <salt.modules.docker.load>` (or the ``docker load`` Docker CLI
+        <salt.modules.dockermod.load>` (or the ``docker load`` Docker CLI
         command), and assigns it the specified repo and tag.
 
         .. code-block:: yaml

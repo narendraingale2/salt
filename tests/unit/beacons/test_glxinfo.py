@@ -19,10 +19,9 @@ class GLXInfoBeaconTestCase(TestCase, LoaderModuleMockMixin):
     '''
     Test case for salt.beacons.glxinfo
     '''
-    loader_module = glxinfo
-    loader_module_globals = {
-        'last_state': {},
-    }
+
+    def setup_loader_modules(self):
+        return {glxinfo: {'last_state': {}}}
 
     def test_no_adb_command(self):
         with patch('salt.utils.which') as mock:
@@ -46,20 +45,18 @@ class GLXInfoBeaconTestCase(TestCase, LoaderModuleMockMixin):
         config = []
 
         log_mock = Mock()
-        glxinfo.log = log_mock
+        with patch.object(glxinfo, 'log', log_mock):
+            ret = glxinfo.beacon(config)
 
-        ret = glxinfo.beacon(config)
-
-        self.assertEqual(ret, [])
+            self.assertEqual(ret, [])
 
     def test_no_user(self):
         config = {'screen_event': True}
 
         log_mock = Mock()
-        glxinfo.log = log_mock
-
-        ret = glxinfo.beacon(config)
-        self.assertEqual(ret, [])
+        with patch.object(glxinfo, 'log', log_mock):
+            ret = glxinfo.beacon(config)
+            self.assertEqual(ret, [])
 
     def test_screen_state(self):
         config = {'screen_event': True, 'user': 'frank'}

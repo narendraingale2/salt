@@ -221,7 +221,8 @@ def present(name,
             win_homedrive=None,
             win_profile=None,
             win_logonscript=None,
-            win_description=None):
+            win_description=None,
+            nologinit=False):
     '''
     Ensure that the named user is present with the specified properties
 
@@ -273,6 +274,13 @@ def present(name,
 
             Additionally, parent directories will *not* be created. The parent
             directory for ``home`` must already exist.
+
+    nologinit : False
+        If set to ``True``, it will not add the user to lastlog and faillog
+        databases.
+
+        .. note::
+            Not supported on Windows or Mac OS.
 
     password
         A password hash to set for the user. This field is only supported on
@@ -386,10 +394,8 @@ def present(name,
 
         .. versionchanged:: 2015.8.0
     '''
-
     # First check if a password is set. If password is set, check if
     # hash_password is True, then hash it.
-
     if password and hash_password:
         log.debug('Hashing a clear text password')
         password = __salt__['shadow.gen_password'](password)
@@ -402,6 +408,10 @@ def present(name,
         workphone = sdecode(workphone)
     if homephone is not None:
         homephone = sdecode(homephone)
+
+    # createhome not supported on Windows or Mac
+    if __grains__['kernel'] in ('Darwin', 'Windows'):
+        createhome = False
 
     ret = {'name': name,
            'changes': {},
@@ -498,7 +508,7 @@ def present(name,
                 __salt__['shadow.set_password'](name, password)
                 continue
             if key == 'passwd' and empty_password:
-                log.warn("No password will be set when empty_password=True")
+                log.warning("No password will be set when empty_password=True")
                 continue
             if key == 'date':
                 __salt__['shadow.set_date'](name, date)
@@ -635,6 +645,7 @@ def present(name,
                       'workphone': workphone,
                       'homephone': homephone,
                       'createhome': createhome,
+                      'nologinit': nologinit,
                       'loginclass': loginclass}
         else:
             params = ({'name': name,

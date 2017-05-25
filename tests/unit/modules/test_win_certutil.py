@@ -4,19 +4,21 @@
 from __future__ import absolute_import
 
 # Import Salt Libs
-from salt.modules import win_certutil as certutil
+import salt.modules.win_certutil as certutil
 
 # Import Salt Testing Libs
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import TestCase
 from tests.support.mock import (
     MagicMock,
     patch
 )
 
-certutil.__salt__ = {}
 
+class CertUtilTestCase(TestCase, LoaderModuleMockMixin):
 
-class CertUtilTestCase(TestCase):
+    def setup_loader_modules(self):
+        return {certutil: {}}
 
     def test_get_serial(self):
         '''
@@ -52,16 +54,16 @@ class CertUtilTestCase(TestCase):
             cmd_mock.assert_called_once_with('certutil.exe -addstore TrustedPublisher /tmp/cert.cer')
             cache_mock.assert_called_once_with('salt://path/to/file', 'base')
 
-    @patch('salt.modules.win_certutil.get_cert_serial')
-    def test_del_store(self, cert_serial_mock):
+    def test_del_store(self):
         '''
             Test removing a certificate to a specific store
         '''
-        cmd_mock = MagicMock(return_value='CertInfo\r\nSerial: XYZABC\r\nOtherStuff')
-        cache_mock = MagicMock(return_value='/tmp/cert.cer')
-        cert_serial_mock.return_value = "ABCDEF"
-        with patch.dict(certutil.__salt__, {'cmd.run': cmd_mock,
-                                            'cp.cache_file': cache_mock}):
-            certutil.del_store('salt://path/to/file', 'TrustedPublisher')
-            cmd_mock.assert_called_once_with('certutil.exe -delstore TrustedPublisher ABCDEF')
-            cache_mock.assert_called_once_with('salt://path/to/file', 'base')
+        with patch('salt.modules.win_certutil.get_cert_serial') as cert_serial_mock:
+            cmd_mock = MagicMock(return_value='CertInfo\r\nSerial: XYZABC\r\nOtherStuff')
+            cache_mock = MagicMock(return_value='/tmp/cert.cer')
+            cert_serial_mock.return_value = "ABCDEF"
+            with patch.dict(certutil.__salt__, {'cmd.run': cmd_mock,
+                                                'cp.cache_file': cache_mock}):
+                certutil.del_store('salt://path/to/file', 'TrustedPublisher')
+                cmd_mock.assert_called_once_with('certutil.exe -delstore TrustedPublisher ABCDEF')
+                cache_mock.assert_called_once_with('salt://path/to/file', 'base')

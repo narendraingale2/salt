@@ -411,13 +411,21 @@ class Pillar(object):
         # Gather initial top files
         try:
             if self.opts['pillarenv']:
-                top = self.client.cache_file(
-                    self.opts['state_top'], self.opts['pillarenv'])
-
-                if top:
+                # If the specified pillarenv is not present in the available
+                # pillar environments, do not cache the pillar top file.
+                if self.opts['pillarenv'] not in self.opts['file_roots']:
+                    log.debug(
+                        'pillarenv \'%s\' not found in the configured pillar '
+                        'environments (%s)',
+                        self.opts['pillarenv'], ', '.join(self.opts['file_roots'])
+                    )
+                else:
                     tops[self.opts['pillarenv']] = [
                             compile_template(
-                                top,
+                                self.client.cache_file(
+                                    self.opts['state_top'],
+                                    self.opts['pillarenv']
+                                    ),
                                 self.rend,
                                 self.opts['renderer'],
                                 self.opts['renderer_blacklist'],
@@ -688,9 +696,11 @@ class Pillar(object):
                                         )
                                 if nstate:
                                     if key:
-                                        nstate = {
-                                            key: nstate
-                                        }
+                                        # If key is x:y, convert it to {x: {y: nstate}}
+                                        for key_fragment in reversed(key.split(":")):
+                                            nstate = {
+                                                key_fragment: nstate
+                                            }
 
                                     state = merge(
                                         state,

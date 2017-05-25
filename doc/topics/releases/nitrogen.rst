@@ -47,9 +47,9 @@ has now been extended to pillar SLS files as well. See :ref:`here
 Grains Changes
 ==============
 
-- The ``os_release`` grain has been changed from a string to an integer.
-  State files, especially those using a templating language like Jinja
-  may need to be adjusted to account for this change.
+- The ``osmajorrelease`` grain has been changed from a string to an integer.
+  State files, especially those using a templating language like Jinja, may
+  need to be adjusted to account for this change.
 - Add ability to specify disk backing mode in the VMWare salt cloud profile.
 
 State Module Changes
@@ -60,49 +60,53 @@ State Module Changes
   ``no_block`` argument which, when set to ``True`` on systemd minions, will
   start/stop the service using the ``--no-block`` flag in the ``systemctl``
   command. On non-systemd minions, a warning will be issued.
+- The :py:func:`module.run <salt.states.module.run>` state has dropped its
+  previous syntax with ``m_`` prefix for reserved keywords. Additionally, it
+  allows running several functions in a batch.
 
-- The :py:func:`module.run <salt.states.module.run>` state has dropped its previous
-  syntax with ``m_`` prefix for reserved keywords. Additionally, it allows
-  running several functions in a batch.
+  .. note::
+      It is necessary to explicitly turn on the new behavior (see below)
 
-.. note::
-    It is nesessary to explicitly turn on the new behaviour (see below)
+  .. code-block:: yaml
 
-  Before and after:
+      # Before
+      run_something:
+        module.run:
+          - name: mymodule.something
+          - m_name: 'some name'
+          - kwargs: {
+            first_arg: 'one',
+            second_arg: 'two',
+            do_stuff: 'True'
+          }
 
-.. code-block:: yaml
-
-    # Before
-    run_something:
-      module.run:
-        - name: mymodule.something
-        - m_name: 'some name'
-        - kwargs: {
-          first_arg: 'one',
-          second_arg: 'two',
-          do_stuff: 'True'
-        }
-
-    # After
-    run_something:
-      module.run:
-        mymodule.something:
-          - name: some name
-          - first_arg: one
-          - second_arg: two
-          - do_stuff: True
-
-- Previous behaviour of the function :py:func:`module.run <salt.states.module.run>` is
-  still kept by default and can be bypassed in case you want to use behaviour above.
-  Please keep in mind that the old syntax will no longer be supported in the ``Oxygen``
-  release of Salt. To enable the new behavior, add the following to the minion config file:
+      # After
+      run_something:
+        module.run:
+          mymodule.something:
+            - name: some name
+            - first_arg: one
+            - second_arg: two
+            - do_stuff: True
 
 
-.. code-block:: yaml
+  Since a lot of users are already using :py:func:`module.run
+  <salt.states.module.run>` states, this new behavior must currently be
+  explicitly turned on, to allow users to take their time updating their SLS
+  files. However, please keep in mind that the new syntax will take effect in
+  the next feature release of Salt (Oxygen) and the old usage will no longer be
+  supported at that time.
 
-    use_superseded:
-      - module.run
+  To enable the new behavior for :py:func:`module.run <salt.states.module.run>`,
+  add the following to the minion config file:
 
+  .. code-block:: yaml
+
+      use_superseded:
+        - module.run
+- The default for the ``fingerprint_hash_type`` option used in the ``present``
+  function in the :mod:`ssh <salt.states.ssh_know_hosts>` state changed from
+  ``md5`` to ``sha256``.
 
 
 Execution Module Changes
@@ -128,33 +132,52 @@ Execution Module Changes
 - A ``pkg.list_repo_pkgs`` function has been added for both
   :py:func:`Debian/Ubuntu <salt.modules.aptpkg.list_repo_pkgs>` and
   :py:func:`Arch Linux <salt.modules.pacman.list_repo_pkgs>`-based distros.
+- The :mod:`system <salt.modules.system>` module changed its return format
+  from "HH:MM AM/PM" to "HH:MM:SS AM/PM" for `get_system_time`.
+- The default for the ``fingerprint_hash_type`` option used in the
+  :mod:`ssh <salt.modules.ssh>` execution module changed from ``md5`` to
+  ``sha256``.
+
+
+Proxy Module Changes
+====================
+
+The :conf_proxy:`proxy_merge_grains_in_module` configuration variable
+introduced in 2016.3, has been changed, defaulting to ``True``.
+
+The connection with the remote device is kept alive by default, when the
+module implements the ``alive`` function and :conf_proxy:`proxy_keep_alive`
+is set to ``True``. The polling interval is set using the
+:conf_proxy:`proxy_keep_alive_interval` option which defaults to 1 minute.
+
+The developers are also able to use the :conf_proxy:`proxy_always_alive`,
+when designing a proxy module flexible enough to open the
+connection with the remote device only when required.
+
 
 Wildcard Versions in :py:func:`pkg.installed <salt.states.pkg.installed>` States
 ================================================================================
 
-The :py:func:`pkg.installed <salt.states.pkg.installed>` state now supports
-wildcards in package versions, for the following platforms:
+- The :py:func:`pkg.installed <salt.states.pkg.installed>` state now supports
+  wildcards in package versions, for the following platforms:
 
-- Debian/Ubuntu
-- RHEL/CentOS
-- Arch Linux
+  - Debian/Ubuntu
+  - RHEL/CentOS
+  - Arch Linux
 
-This support also extends to any derivatives of these distros, which use the
-:mod:`aptpkg <salt.modules.aptpkg>`, :mod:`yumpkg <salt.modules.yumpkg>`, or
-:mod:`pacman <salt.modules.pacman>` providers for the ``pkg`` virtual module.
+  This support also extends to any derivatives of these distros, which use the
+  :mod:`aptpkg <salt.modules.aptpkg>`, :mod:`yumpkg <salt.modules.yumpkg>`, or
+  :mod:`pacman <salt.modules.pacman>` providers for the ``pkg`` virtual module.
 
-Using wildcards can be useful for packages where the release name is built into
-the version in some way, such as for RHEL/CentOS which typically has version
-numbers like ``1.2.34-5.el7``. An example of the usage for this would be:
+  Using wildcards can be useful for packages where the release name is built into
+  the version in some way, such as for RHEL/CentOS which typically has version
+  numbers like ``1.2.34-5.el7``. An example of the usage for this would be:
 
-.. code-block:: yaml
+  .. code-block:: yaml
 
-    mypkg:
-      pkg.installed:
-        - version: '1.2.34*'
-
-- The :mod:`system <salt.modules.system>` module changed the returned format
-  from "HH:MM AM/PM" to "HH:MM:SS AM/PM" for `get_system_time`.
+      mypkg:
+        pkg.installed:
+          - version: '1.2.34*'
 
 Master Configuration Additions
 ==============================
@@ -162,6 +185,12 @@ Master Configuration Additions
 - :conf_master:`syndic_forward_all_events` - Option on multi-syndic or single
   when connected to multiple masters to be able to send events to all connected
   masters.
+
+- :conf_master:`eauth_acl_module` - In case external auth is enabled master can
+  get authenticate and get the authorization list from different auth modules.
+
+- :conf_master:`keep_acl_in_token` - Option that allows master to build ACL once
+  for each user being authenticated and keep it in the token.
 
 Minion Configuration Additions
 ==============================
@@ -176,8 +205,22 @@ Minion Configuration Additions
   config file, or if ``pillarenv`` is provided on the CLI, it will override
   this option.
 
+salt-api Changes
+================
+
+The ``rest_cherrypy`` netapi module has recieved a few minor improvements:
+
+* A CORS bugfix.
+* A new ``/token`` convenience endpoint to generate Salt eauth tokens.
+* A proof-of-concept JavaScript single-page application intended to demonstrate
+  how to use the Server-Sent Events stream in an application. It is available
+  in a default install by visiting the ``/app`` URL in a browser.
+
 Python API Changes
 ==================
+
+``expr_form`` Deprecation
+-------------------------
 
 The :ref:`LocalClient <local-client>`'s ``expr_form`` argument has been
 deprecated and renamed to ``tgt_type``. This change was made due to numerous
@@ -190,6 +233,110 @@ release cycle (two major releases after this one), those who are using the
 :ref:`LocalClient <local-client>` (either directly, or implictly via a
 :ref:`netapi module <all-netapi-modules>`) are encouraged to update their code
 to use ``tgt_type``.
+
+``full_return`` Argument in ``LocalClient`` and ``RunnerClient``
+----------------------------------------------------------------
+
+An ``full_return`` argument has been added to the ``cmd`` and ``cmd_sync``
+methods in ``LocalClient`` and ``RunnerClient`` which causes the return data
+structure to include job meta data such as ``retcode``.
+
+This is useful at the Python API:
+
+.. code-block:: python
+
+    >>> import salt.client
+    >>> client = salt.client.LocalClient()
+    >>> client.cmd('*', 'cmd.run', ['return 1'], full_return=True)
+    {'jerry': {'jid': '20170520151213898053', 'ret': '', 'retcode': 1}}
+
+As well as from salt-api:
+
+.. code-block:: bash
+
+    % curl -b /tmp/cookies.txt -sS http://localhost:8000 \
+        -H 'Content-type: application/json' \
+        -d '[{
+            "client": "local",
+            "tgt": "*",
+            "fun": "cmd.run",
+            "arg": ["return 1"],
+            "full_return": true
+        }]'
+
+    {"return": [{"jerry": {"jid": "20170520151531477653", "retcode": 1, "ret": ""}}]}
+
+Network Automation
+==================
+
+NAPALM
+------
+
+Introduced in 2016.11, the modules for cross-vendor network automation
+have been improved, enhanced and widenened in scope:
+
+- Manage network devices like servers: the NAPALM modules have been transformed
+  so they can run in both proxy and regular minions. That means, if the
+  operating system allows, the salt-minion package can be installed directly
+  on the network gear. Examples of such devices (also covered by NAPALM)
+  include: Arista, Cumulus, Cisco IOS-XR or Cisco Nexus.
+- Not always alive: in certain less dynamic environments,
+  maintaining the remote connection permanently open with the network device
+  is not always beneficial. In those particular cases, the user can select
+  to initialize the connection only when needed, by specifying the field
+  ``always_alive: false`` in the :mod:`proxy configuration <salt.proxy.napalm>`
+  or using the :conf_proxy:`proxy_always_alive` option.
+- Proxy keepalive: due to external factors, the connection with the remote
+  device can be dropped, e.g.: packet loss, idle time (no commands issued
+  within a couple of minutes or seconds), or simply the device decides to kill
+  the process. In Nitrogen we have introduced the functionality to re-establish
+  the connection. One can disable this feature through the
+  :conf_proxy:`proxy_keep_alive` option and adjust the polling frequency
+  speciying a custom value for :conf_proxy:`proxy_keep_alive_interval`,
+  in minutes.
+
+New modules:
+
+- :mod:`Netconfig state module <salt.states.netconfig>` - Manage the configuration
+  of network devices using arbitrary templates and the Salt-specific
+  advanced templating methodologies.
+- :mod:`Network ACL execution module <salt.modules.napalm_acl>` - Generate and
+  load ACL (firewall) configuration on network devices.
+- :mod:`Network ACL state <salt.states.netacl>` - Manage the firewall
+  configuration. It only requires writing the pillar structure correctly!
+- :mod:`NAPALM YANG execution module <salt.modules.napalm_yang_mod>` - Parse,
+  generate and load native device configuration in a standard way,
+  using the OpenConfig/IETF models. This module contains also helpers for
+  the states.
+- :mod:`NAPALM YANG state module <salt.states.netyang>` - Manage the
+  network device configuration according to the YANG models (OpenConfig or IETF).
+- :mod:`NET finder <salt.runners.net>` - Runner to find details easily and
+  fast. It's smart enough to know what you are looking for. It will search
+  in the details of the network interfaces, IP addresses, MAC address tables,
+  ARP tables and LLDP neighbors.
+- :mod:`BGP finder <salt.runners.bgp>` - Runner to search BGP neighbors details.
+- :mod:`NAPALM syslog <salt.engines.napalm_syslog>` - Engine to import events
+  from the napalm-logs library into the Salt event bus. The events are based
+  on the syslog messages from the network devices and structured following
+  the OpenConfig/IETF YANG models.
+- :mod:`NAPALM Helpers <salt.modules.napalm>` - Generic helpers for
+  NAPALM-related operations. For example, the
+  :mod:`Compliance report <salt.modules.napalm.compliance_report>` function
+  can be used inside the state modules to compare the expected and the
+  existing configuration.
+
+New functions:
+
+- :mod:`Configuration getter <salt.modules.napalm_network.config>` - Return
+  the whole configuration of the network device.
+- :mod:`Optics getter <salt.modules.napalm_network.optics>` - Fetches
+  the power usage on the various transceivers installed on the network device
+  (in dBm).
+
+New grains: :mod:`Host <salt.grains.napalm.host>`,
+:mod:`Username <salt.grains.napalm.username>` and
+:mod:`Optional args <salt.grains.napalm.optional_args>`.
+
 
 Custom Refspecs in GitFS / git_pillar / winrepo
 ===============================================
@@ -257,6 +404,18 @@ This is similar to how Salt handles MySQL, MongoDB, Zabbix, and other cases
 where the same execution module is used to manage several different kinds
 of objects (users, databases, roles, etc.).
 
+.. note::
+    With the `Moby announcement`_ coming at this year's DockerCon_, Salt's
+    :mod:`docker <salt.modules.dockermod>` execution module (as well as the
+    state modules) work interchangably when **docker** is replaced with
+    **moby** (e.g.  :py:func:`moby_container.running
+    <salt.states.docker_container.running>`, :py:func:`moby_image.present
+    <salt.states.docker_image.present>`, :py:func:`moby.inspect_container
+    <salt.modules.dockermod.inspect_container>`, etc.)
+
+.. _`Moby announcement`: https://blog.docker.com/2017/04/introducing-the-moby-project/
+.. _DockerCon: http://2017.dockercon.com/
+
 The old syntax will continue to work until the **Fluorine** release of Salt.
 The old ``dockerng`` naming will also continue to work until that release, so
 no immediate changes need to be made to your SLS files (unless you were still
@@ -299,10 +458,21 @@ New SSH Cache Roster
 ====================
 
 The :mod:`SSH cache Roster <salt.roster.cache>` has been rewritten from scratch to increase its usefulness.
-The new roster supports all minion matchers, so it is now possible to target minions identically through `salt` and `salt-ssh`.
-The new configuration syntax allows for flexible combinations of arbitrary grains, pillar and mine data.
-This applies not just for the `host` of a minion, but also for other configuration data.
-The new release is also fully IPv4 and IPv6 enabled and even allows for the selection of certain CIDR ranges for connecting.
+The new roster supports all minion matchers,
+so it is now possible to target minions identically through `salt` and `salt-ssh`.
+
+Using the new ``roster_order`` configuration syntax it's now possible to compose a roster out of any combination
+of grains, pillar and mine data and even Salt SDB URLs.
+The new release is also fully IPv4 and IPv6 enabled and even has support for CIDR ranges.
+
+New Modules
+===========
+
+Outputters
+----------
+
+- :mod:`table <salt.output.table_out>`
+- :mod:`profile <salt.output.profile>`
 
 Deprecations
 ============

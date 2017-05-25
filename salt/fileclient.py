@@ -132,11 +132,7 @@ class Client(object):
         '''
         Return the local location to cache the file, cache dirs will be made
         '''
-        if cachedir is None:
-            cachedir = self.opts['cachedir']
-        elif not os.path.isabs(cachedir):
-            cachedir = os.path.join(self.opts['cachedir'], cachedir)
-
+        cachedir = self.get_cachedir(cachedir)
         dest = salt.utils.path_join(cachedir,
                                     'files',
                                     saltenv,
@@ -158,6 +154,13 @@ class Client(object):
 
         yield dest
         os.umask(cumask)
+
+    def get_cachedir(self, cachedir=None):
+        if cachedir is None:
+            cachedir = self.opts['cachedir']
+        elif not os.path.isabs(cachedir):
+            cachedir = os.path.join(self.opts['cachedir'], cachedir)
+        return cachedir
 
     def get_file(self,
                  path,
@@ -250,10 +253,7 @@ class Client(object):
             #     prefix = ''
             # else:
             #     prefix = separated[0]
-            if cachedir is None:
-                cachedir = self.opts['cachedir']
-            elif not os.path.isabs(cachedir):
-                cachedir = os.path.join(self.opts['cachedir'], cachedir)
+            cachedir = self.get_cachedir(cachedir)
 
             dest = salt.utils.path_join(cachedir, 'files', saltenv)
             for fn_ in self.file_list_emptydirs(saltenv):
@@ -645,7 +645,7 @@ class Client(object):
                 dest_tmp = "{0}.part".format(dest)
                 # We need an open filehandle to use in the on_chunk callback,
                 # that's why we're not using a with clause here.
-                destfp = salt.utils.fopen(dest_tmp, 'wb')
+                destfp = salt.utils.fopen(dest_tmp, 'wb')  # pylint: disable=resource-leakage
 
                 def on_chunk(chunk):
                     if write_body[0]:
@@ -817,22 +817,6 @@ class LocalClient(Client):
         fnd_path = fnd.get('path')
         if not fnd_path:
             return ''
-
-        try:
-            fnd_mode = fnd.get('stat', [])[0]
-        except (IndexError, TypeError):
-            fnd_mode = None
-
-        if not salt.utils.is_windows():
-            if fnd_mode is not None:
-                try:
-                    if os.stat(dest).st_mode != fnd_mode:
-                        try:
-                            os.chmod(dest, fnd_mode)
-                        except OSError as exc:
-                            log.warning('Failed to chmod %s: %s', dest, exc)
-                except Exception:
-                    pass
 
         return fnd_path
 
@@ -1085,47 +1069,7 @@ class RemoteClient(Client):
                 mode_local = None
 
             if hash_local == hash_server:
-                if not salt.utils.is_windows():
-                    if mode_server is None:
-                        log.debug('No file mode available for \'%s\'', path)
-                    elif mode_local is None:
-                        log.debug(
-                            'No file mode available for \'%s\'',
-                            dest2check
-                        )
-                    else:
-                        if mode_server == mode_local:
-                            log.info(
-                                'Fetching file from saltenv \'%s\', '
-                                '** skipped ** latest already in cache '
-                                '\'%s\', mode up-to-date', saltenv, path
-                            )
-                        else:
-                            try:
-                                os.chmod(dest2check, mode_server)
-                                log.info(
-                                    'Fetching file from saltenv \'%s\', '
-                                    '** updated ** latest already in cache, '
-                                    '\'%s\', mode updated from %s to %s',
-                                    saltenv,
-                                    path,
-                                    salt.utils.st_mode_to_octal(mode_local),
-                                    salt.utils.st_mode_to_octal(mode_server)
-                                )
-                            except OSError as exc:
-                                log.warning(
-                                    'Failed to chmod %s: %s', dest2check, exc
-                                )
-                    # We may not have been able to check/set the mode, but we
-                    # don't want to re-download the file because of a failure
-                    # in mode checking. Return the cached path.
-                    return dest2check
-                else:
-                    log.info(
-                        'Fetching file from saltenv \'%s\', ** skipped ** '
-                        'latest already in cache \'%s\'', saltenv, path
-                    )
-                    return dest2check
+                return dest2check
 
         log.debug(
             'Fetching file from saltenv \'%s\', ** attempting ** \'%s\'',
@@ -1151,7 +1095,7 @@ class RemoteClient(Client):
                     return False
             # We need an open filehandle here, that's why we're not using a
             # with clause:
-            fn_ = salt.utils.fopen(dest, 'wb+')
+            fn_ = salt.utils.fopen(dest, 'wb+')  # pylint: disable=resource-leakage
         else:
             log.debug('No dest file found')
 
@@ -1163,7 +1107,7 @@ class RemoteClient(Client):
             data = self.channel.send(load, raw=True)
             if six.PY3:
                 # Sometimes the source is local (eg when using
-                # 'salt.filesystem.FSChan'), in which case the keys are
+                # 'salt.fileserver.FSChan'), in which case the keys are
                 # already strings. Sometimes the source is remote, in which
                 # case the keys are bytes due to raw mode. Standardize on
                 # strings for the top-level keys to simplify things.
@@ -1242,23 +1186,6 @@ class RemoteClient(Client):
                 saltenv, path
             )
 
-        if not salt.utils.is_windows():
-            if mode_server is not None:
-                try:
-                    if os.stat(dest).st_mode != mode_server:
-                        try:
-                            os.chmod(dest, mode_server)
-                            log.info(
-                                'Fetching file from saltenv \'%s\', '
-                                '** done ** \'%s\', mode set to %s',
-                                saltenv,
-                                path,
-                                salt.utils.st_mode_to_octal(mode_server)
-                            )
-                        except OSError:
-                            log.warning('Failed to chmod %s: %s', dest, exc)
-                except OSError:
-                    pass
         return dest
 
     def file_list(self, saltenv='base', prefix=''):
